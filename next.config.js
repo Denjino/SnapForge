@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  serverExternalPackages: ['playwright'],
+  serverExternalPackages: ['@sparticuz/chromium', 'playwright-core'],
 };
 
 module.exports = nextConfig;

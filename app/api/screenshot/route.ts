@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { chromium, type Browser } from 'playwright';
+import chromium from '@sparticuz/chromium';
+import { chromium as playwright, type Browser } from 'playwright-core';
 
 let browserInstance: Browser | null = null;
 
@@ -7,17 +8,15 @@ async function getBrowser(): Promise<Browser> {
   if (browserInstance && browserInstance.isConnected()) {
     return browserInstance;
   }
-  browserInstance = await chromium.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-    ],
+  browserInstance = await playwright.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
   });
   return browserInstance;
 }
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
