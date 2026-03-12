@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import JSZip from 'jszip';
 import { VIEWPORT_PRESETS, VIEWPORT_CATEGORIES, type ViewportPreset } from '@/lib/viewports';
 
 interface ScreenshotResult {
@@ -174,11 +175,18 @@ export default function Home() {
   };
 
   const downloadAll = async () => {
-    // Download each individually (zip would require archiver on client)
+    const zip = new JSZip();
     for (const result of results) {
-      downloadScreenshot(result);
-      await new Promise((r) => setTimeout(r, 200));
+      const hostname = new URL(result.url).hostname.replace(/\./g, '-');
+      const filename = `${hostname}_${result.viewport.id}.png`;
+      zip.file(filename, result.image, { base64: true });
     }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `snapforge_${Date.now()}.zip`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   const completedCount = queue.filter((q) => q.status === 'done').length;
