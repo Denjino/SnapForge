@@ -95,6 +95,33 @@ export async function POST(req: NextRequest) {
 
     // Dismiss common cookie/popup overlays
     try {
+      // First, try clicking common dismiss/close buttons
+      const dismissSelectors = [
+        'button[class*="close"]',
+        'button[class*="dismiss"]',
+        'button[class*="decline"]',
+        'button[class*="reject"]',
+        'button[aria-label*="close" i]',
+        'button[aria-label*="dismiss" i]',
+        '[class*="cookie"] button',
+        '[class*="consent"] button:first-of-type',
+        '[class*="popup"] button[class*="close"]',
+        '[class*="modal"] button[class*="close"]',
+        'dialog button[class*="close"]',
+      ];
+      for (const sel of dismissSelectors) {
+        try {
+          const btn = page.locator(sel).first();
+          if (await btn.isVisible({ timeout: 200 })) {
+            await btn.click({ timeout: 500 });
+            await page.waitForTimeout(300);
+          }
+        } catch {
+          // Button not found or not clickable, continue
+        }
+      }
+
+      // Then, force-hide any remaining overlays by CSS patterns
       await page.evaluate(() => {
         const selectors = [
           '[class*="cookie"]',
@@ -104,6 +131,9 @@ export async function POST(req: NextRequest) {
           '[class*="popup"]',
           '[class*="modal"]',
           '[class*="overlay"]',
+          '[class*="banner"]',
+          '[role="dialog"]',
+          '[aria-modal="true"]',
         ];
         selectors.forEach((sel) => {
           document.querySelectorAll(sel).forEach((el) => {
@@ -111,11 +141,16 @@ export async function POST(req: NextRequest) {
             if (
               style.position === 'fixed' ||
               style.position === 'sticky' ||
-              style.zIndex > '999'
+              style.position === 'absolute' ||
+              parseInt(style.zIndex) > 99
             ) {
               (el as HTMLElement).style.display = 'none';
             }
           });
+        });
+        // Also remove any backdrop/overlay covering the page
+        document.querySelectorAll('[class*="backdrop"], [class*="dimmer"]').forEach((el) => {
+          (el as HTMLElement).style.display = 'none';
         });
       });
     } catch {
