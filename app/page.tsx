@@ -177,8 +177,12 @@ export default function Home() {
   const downloadAll = async () => {
     const zip = new JSZip();
     for (const result of results) {
-      const hostname = new URL(result.url).hostname.replace(/\./g, '-');
-      const filename = `${hostname}_${result.viewport.id}.png`;
+      const parsed = new URL(result.url);
+      const slug = (parsed.hostname + parsed.pathname)
+        .replace(/\./g, '-')
+        .replace(/\//g, '_')
+        .replace(/^-+|-+$|^_+|_+$/g, '');
+      const filename = `${slug}_${result.viewport.id}.png`;
       zip.file(filename, result.image, { base64: true });
     }
     const blob = await zip.generateAsync({ type: 'blob' });
