@@ -14,7 +14,7 @@ async function getBrowser(): Promise<Browser> {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--single-process',
+      '--font-render-hinting=none',
     ],
   });
   return browserInstance;
@@ -176,6 +176,11 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Screenshot error:', error);
+    // Reset browser on crash so next request gets a fresh instance
+    if (browserInstance) {
+      try { await browserInstance.close(); } catch {}
+      browserInstance = null;
+    }
     return NextResponse.json(
       { error: error.message || 'Screenshot failed' },
       { status: 500 }

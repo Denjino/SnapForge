@@ -324,11 +324,18 @@ export default function Home() {
                         {item.status === 'done' && '✓'}
                         {item.status === 'error' && '✗'}
                       </span>
-                      <span
-                        className="truncate flex-1"
-                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                      >
-                        {item.url}
+                      <span className="truncate flex-1 min-w-0">
+                        <span
+                          className="block truncate"
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                        >
+                          {item.url}
+                        </span>
+                        {item.status === 'error' && item.error && (
+                          <span className="block text-red-400/70 truncate text-[10px]">
+                            {item.error}
+                          </span>
+                        )}
                       </span>
                       <span className="text-gray-600 shrink-0">
                         {item.viewport.label}
