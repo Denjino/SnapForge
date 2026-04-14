@@ -46,7 +46,9 @@ Pick one:
 
 ## First launch
 
-When you launch SnapForge for the first time, it'll open to the app window within a few seconds. Chromium comes bundled with the installer, so there's no 150 MB first-run download.
+The **first time** you launch SnapForge, a small "Setting up SnapForge" window appears while it downloads Chromium (~150 MB, the browser engine that actually takes the screenshots). This takes 30–60 seconds depending on your connection.
+
+**This happens once.** Every launch after that is instant — SnapForge remembers the browser is installed.
 
 ---
 
