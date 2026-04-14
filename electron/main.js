@@ -52,19 +52,18 @@ function getFreePort() {
 }
 
 // --- Ensure Playwright's Chromium is available.
-// Prefers the copy bundled with the installer (placed at
-// node_modules/playwright-core/.local-browsers by the CI build).
+// Prefers the copy bundled with the installer:
+//   - Packaged: <resources>/playwright-browsers (via electron-builder extraResources)
+//   - Dev:      node_modules/playwright-core/.local-browsers
 // Falls back to a one-time download into userData if the bundled copy is absent.
 function ensurePlaywrightChromium() {
-  const bundledBrowsers = path.join(
-    appRoot(),
-    'node_modules',
-    'playwright-core',
-    '.local-browsers'
-  );
+  const bundledBrowsers = isDev
+    ? path.join(appRoot(), 'node_modules', 'playwright-core', '.local-browsers')
+    : path.join(process.resourcesPath, 'playwright-browsers');
+
   if (fs.existsSync(bundledBrowsers) && fs.readdirSync(bundledBrowsers).length > 0) {
-    // "0" tells Playwright to use the browsers bundled in node_modules/playwright-core/.local-browsers
-    process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+    // Point Playwright at the bundled absolute path.
+    process.env.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers;
     return true;
   }
 
