@@ -60,15 +60,7 @@
         "to": ".next/standalone/public",
         "filter": ["**/*"]
       },
-      "node_modules/**/*",
-      "!node_modules/playwright-core/.local-browsers/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "node_modules/playwright-core/.local-browsers",
-        "to": "playwright-browsers",
-        "filter": ["**/*"]
-      }
+      "node_modules/**/*"
     ],
     "extraMetadata": {
       "main": "electron/main.js"

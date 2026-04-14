@@ -52,22 +52,10 @@ function getFreePort() {
 }
 
 // --- Ensure Playwright's Chromium is available.
-// Prefers the copy bundled with the installer:
-//   - Packaged: <resources>/playwright-browsers (via electron-builder extraResources)
-//   - Dev:      node_modules/playwright-core/.local-browsers
-// Falls back to a one-time download into userData if the bundled copy is absent.
+// Installs Chromium into userData on first launch (~150 MB, one-time).
+// NOTE: We don't pre-bundle Chromium because macOS framework symlinks
+// inside the .app cannot be copied correctly by electron-builder.
 function ensurePlaywrightChromium() {
-  const bundledBrowsers = isDev
-    ? path.join(appRoot(), 'node_modules', 'playwright-core', '.local-browsers')
-    : path.join(process.resourcesPath, 'playwright-browsers');
-
-  if (fs.existsSync(bundledBrowsers) && fs.readdirSync(bundledBrowsers).length > 0) {
-    // Point Playwright at the bundled absolute path.
-    process.env.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers;
-    return true;
-  }
-
-  // Fallback: install on first launch (older builds without the bundled Chromium)
   const markerFile = path.join(app.getPath('userData'), '.chromium-installed');
   if (fs.existsSync(markerFile)) return true;
 
