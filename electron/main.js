@@ -8,6 +8,15 @@ const http = require('http');
 const fs = require('fs');
 const net = require('net');
 
+// electron-updater is only present in packaged builds (dev skips updates)
+let autoUpdater = null;
+try {
+  // eslint-disable-next-line global-require
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch {
+  // dev environment — ignore
+}
+
 const isDev = !app.isPackaged;
 
 let mainWindow = null;
@@ -42,9 +51,24 @@ function getFreePort() {
   });
 }
 
-// --- Ensure Playwright's Chromium is available. Install on first run if missing.
-// Uses a marker file in userData so subsequent launches skip the install check.
+// --- Ensure Playwright's Chromium is available.
+// Prefers the copy bundled with the installer (placed at
+// node_modules/playwright-core/.local-browsers by the CI build).
+// Falls back to a one-time download into userData if the bundled copy is absent.
 function ensurePlaywrightChromium() {
+  const bundledBrowsers = path.join(
+    appRoot(),
+    'node_modules',
+    'playwright-core',
+    '.local-browsers'
+  );
+  if (fs.existsSync(bundledBrowsers) && fs.readdirSync(bundledBrowsers).length > 0) {
+    // "0" tells Playwright to use the browsers bundled in node_modules/playwright-core/.local-browsers
+    process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+    return true;
+  }
+
+  // Fallback: install on first launch (older builds without the bundled Chromium)
   const markerFile = path.join(app.getPath('userData'), '.chromium-installed');
   if (fs.existsSync(markerFile)) return true;
 
@@ -96,6 +120,38 @@ function ensurePlaywrightChromium() {
     );
     return false;
   }
+}
+
+// --- Auto-update via GitHub Releases (electron-updater)
+// Checks on startup and every hour thereafter. When an update is downloaded,
+// shows an unobtrusive dialog inviting the user to restart.
+function setupAutoUpdater() {
+  if (!autoUpdater || isDev) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('error', (err) => {
+    // Log but don't interrupt the user — update failures shouldn't block usage
+    console.error('[updater]', err);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    const res = dialog.showMessageBoxSync(mainWindow || undefined, {
+      type: 'info',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'SnapForge update ready',
+      message: `SnapForge ${info.version} has been downloaded.`,
+      detail: 'Restart now to apply the update, or it will install automatically next time you quit.',
+    });
+    if (res === 0) autoUpdater.quitAndInstall();
+  });
+
+  // Initial check + hourly thereafter
+  autoUpdater.checkForUpdates().catch(() => {});
+  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
 }
 
 // --- Start the Next.js server as a child process.
@@ -197,6 +253,7 @@ app.whenReady().then(async () => {
     }
     await startNextServer();
     createWindow();
+    setupAutoUpdater();
   } catch (err) {
     dialog.showErrorBox('SnapForge failed to start', err && err.message ? err.message : String(err));
     app.quit();

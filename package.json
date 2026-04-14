@@ -15,6 +15,7 @@
     "electron:build:all": "npm run build && electron-builder -mw"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "jszip": "^3.10.1",
     "next": "^14.2.0",
     "playwright": "^1.58.2",
@@ -59,8 +60,7 @@
         "to": ".next/standalone/public",
         "filter": ["**/*"]
       },
-      "node_modules/playwright/**/*",
-      "node_modules/playwright-core/**/*"
+      "node_modules/**/*"
     ],
     "extraMetadata": {
       "main": "electron/main.js"
@@ -81,19 +81,34 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },
-    "dmg": {
-      "writeUpdateInfo": false
-    },
     "win": {
       "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
         {
           "target": "portable",
           "arch": ["x64"]
         }
       ]
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SnapForge",
+      "artifactName": "SnapForge-Setup-${version}.${ext}"
+    },
     "portable": {
       "artifactName": "SnapForge-${version}-portable.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Denjino",
+      "repo": "SnapForge"
     }
   }
 }
