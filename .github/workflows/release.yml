@@ -3,6 +3,14 @@ name: Release
 # Builds and publishes SnapForge desktop binaries for macOS and Windows.
 # Trigger: push a tag like `v1.0.1`. GitHub Actions will build both platforms
 # in parallel and attach the artifacts to a GitHub Release of the same name.
+#
+# macOS is code-signed with a Developer ID Application cert and notarized via
+# Apple's notary service. Required repository secrets:
+#   APPLE_CERTIFICATE_BASE64       base64 of the exported .p12 Developer ID cert
+#   APPLE_CERTIFICATE_PASSWORD     password used when exporting the .p12
+#   APPLE_ID                       Apple ID email
+#   APPLE_APP_SPECIFIC_PASSWORD    app-specific password (appleid.apple.com)
+#   APPLE_TEAM_ID                  10-char Team ID (developer.apple.com)
 
 on:
   push:
@@ -41,22 +49,58 @@ jobs:
         # lockfile to be pre-synced with every dependency change. Safe for a
         # small-team project where exact lockfile reproducibility is less
         # critical than zero-friction releases.
-        run: npm install
+        run: npm install --include=optional
 
       # NOTE: Chromium is NOT pre-bundled in the installer.
-      # On macOS, Playwright's Chromium .app contains framework symlinks
-      # (Versions/Current/...) that electron-builder's file copy cannot
-      # preserve, causing ENOENT failures. On first launch, SnapForge
-      # downloads Chromium into the userData folder (one-time, ~150 MB,
-      # shows a progress dialog).
+      # On first launch, SnapForge downloads Chromium into userData
+      # (~150 MB, one-time, shows a progress dialog).
 
       - name: Build Next.js
         run: npm run build
+
+      # Import the Developer ID Application cert into a temporary keychain.
+      # electron-builder's macOS signer picks it up automatically.
+      - name: Import signing certificate (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/snapforge-build.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+          CERT_PATH="$RUNNER_TEMP/snapforge-cert.p12"
+
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Put the new keychain first so codesign finds the cert.
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+
+          # Remove the p12 from disk — the cert now lives in the keychain.
+          rm "$CERT_PATH"
+
+          # Sanity-check the identity was imported
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
       - name: Build & publish (macOS)
         if: matrix.os == 'macos-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # electron-builder >= 24 reads these for the built-in notarytool path
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Disable the legacy auto-discovery — we've set up the keychain above
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
         run: npx electron-builder --mac --publish always
 
       - name: Build & publish (Windows)
