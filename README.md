@@ -1,134 +1,145 @@
 # SnapForge
 
-Bulk URL screenshot tool with viewport presets. Paste a list of URLs, pick your viewports, and capture everything in one go.
+A small toolkit of local-first desktop tools, bundled as a single Electron app.
+Currently ships with two tools; more are planned. Everything runs on your
+machine — no cloud, no accounts.
 
-![SnapForge](https://img.shields.io/badge/Next.js-14-black) ![Playwright](https://img.shields.io/badge/Playwright-latest-green) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Electron](https://img.shields.io/badge/Electron-33-47848F) ![Next.js](https://img.shields.io/badge/Next.js-14-black) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Features
+## Tools
 
-- **Bulk capture** — paste multiple URLs or import from a `.txt` file
-- **Viewport presets** — Desktop HD, Desktop, Laptop, iPad Pro, iPad, iPhone 15 Pro, iPhone SE, Pixel 7
-- **Custom viewport** — set any width × height
-- **Full page screenshots** — captures entire scrollable page or just the viewport
-- **Configurable wait time** — let lazy-loaded content and animations settle
-- **Auto cookie/popup dismissal** — attempts to hide overlay banners before capture
-- **Live progress tracking** — see each capture as it completes
-- **Individual + bulk download** — download one at a time or all at once
+### Screenshot Capture
+Bulk-capture screenshots across viewports, backed by Playwright + headless
+Chromium.
 
-## Quick Start (Local)
+- Paste URLs or import from a `.txt`
+- Viewport presets (Desktop HD/1440/Laptop, iPad Pro/iPad, iPhone 15 Pro/SE, Pixel 7) + custom W×H
+- Full-page captures, cookie/popup auto-dismissal, configurable wait time
+- Download individually or as a single ZIP
+
+### Image Processor
+Convert, resize, and compress images with Sharp + TinyPNG.
+
+- Convert to AVIF or WebP (keeps original if smaller)
+- Downscale to 1K / 1.5K / 2K / 3K longest side (downscale only)
+- Optional TinyPNG compression (format-preserving)
+- Per-image and ZIP download
+
+## Quick Start (Desktop App)
 
 ```bash
-# Clone
-git clone https://github.com/YOUR_USER/snapforge.git
-cd snapforge
-
-# Install dependencies + Playwright Chromium
 npm install
+npm run electron:dev      # build + launch as a desktop app
+```
 
-# Run dev server
+First launch downloads Chromium (~150 MB) into your user data dir — one time.
+
+## Quick Start (Web Dev)
+
+```bash
+npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Then open <http://localhost:3000>.
 
-### Prerequisites
+While developing outside of Electron, `window.api` (provided by the preload)
+isn't available. You can exercise the image processor's compression step by
+setting `NEXT_PUBLIC_DEV_TINYPNG_KEY` in a local `.env` file — never commit it.
 
-- Node.js 20+
-- Playwright will auto-install Chromium via the `postinstall` script
+## Settings & the TinyPNG Key
 
-## Deploy to Railway
+The Image Processor's compression step uses your own TinyPNG API key. Get a
+free one at <https://tinify.com/dashboard/api>. Open the app → gear icon →
+**Settings** → paste the key → **Save**.
 
-1. Push this repo to GitHub
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-3. Select this repo
-4. Railway auto-detects the Dockerfile — no config needed
-5. Once deployed, you'll get a public URL
+- The key is stored locally via `electron-store` in the app's userData dir.
+- It is sent from the desktop app directly to `api.tinify.com` — nowhere else.
+- The key is passed per-request in an `X-TinyPNG-Key` header and never
+  written to logs or response bodies.
 
-**Note:** Railway's free tier works fine for personal use. The Dockerfile handles all Playwright/Chromium dependencies.
-
-## Deploy to Render
-
-1. Push to GitHub
-2. Go to [render.com](https://render.com) → New Web Service
-3. Connect your repo
-4. Set:
-   - **Runtime:** Docker
-   - **Plan:** Starter or higher (needs ~1GB RAM for Chromium)
-5. Deploy
-
-## Deploy to Fly.io
+## Build Desktop Installers
 
 ```bash
-# Install flyctl if you haven't
-brew install flyctl
-
-# From the project root
-fly launch
-fly deploy
+npm run electron:build:mac    # .dmg + .zip for arm64 + x64
+npm run electron:build:win    # NSIS installer + portable .exe (x64)
+npm run electron:build:all    # both
 ```
 
-## Project Structure
+Artifacts land in `release/`. Releases are published automatically to
+`Denjino/SnapForge` (`build.publish` in `package.json`) — the Electron app
+auto-updates from there on subsequent runs.
+
+## Architecture
 
 ```
 snapforge/
+├── electron/
+│   ├── main.js           # Electron main: spawns Next.js, IPC handlers, updater
+│   ├── preload.js        # Exposes window.api.settings {get,set,has}
+│   └── assets/           # Build resources (icons)
 ├── app/
-│   ├── api/
-│   │   └── screenshot/
-│   │       └── route.ts      # Playwright screenshot endpoint
-│   ├── globals.css            # Styles
-│   ├── layout.tsx             # Root layout
-│   └── page.tsx               # Main UI
+│   ├── page.tsx          # Hub (tool chooser)
+│   ├── layout.tsx        # Shared shell + Header
+│   ├── screenshot/       # Screenshot Capture tool
+│   ├── image-processor/  # Image Processor tool
+│   ├── settings/         # TinyPNG key management
+│   └── api/
+│       ├── screenshot/   # Playwright screenshot endpoint
+│       └── image/        # upload / convert / resize / compress / download / zip / compression-count
+├── components/
+│   └── hub/              # ToolCard, Header
 ├── lib/
-│   └── viewports.ts           # Viewport preset definitions
-├── Dockerfile                 # Production container
-├── next.config.js
-├── tailwind.config.js
-└── package.json
+│   ├── brand.ts, accents.ts
+│   ├── viewports.ts      # Screenshot preset definitions
+│   ├── sharp-utils.ts    # Image conversion / resize helpers
+│   ├── tinypng.ts        # TinyPNG REST client
+│   ├── image-sessions.ts # In-memory session store (per-image buffers)
+│   ├── paths.ts          # Resolves USER_DATA_DIR for temp storage
+│   └── settings-client.ts# Renderer-side wrapper for window.api.settings
+└── types/
+    └── global.d.ts       # window.api typings
 ```
+
+### Runtime model
+- Electron main spawns the Next.js standalone server as a child process on a
+  free localhost port, then loads it in a `BrowserWindow`.
+- `USER_DATA_DIR` is passed into the child-process env so API routes know where
+  to write temp image files (inside userData — the app bundle is read-only on
+  mac/Windows).
+- Per-session image buffers live in a module-level `Map` in
+  `lib/image-sessions.ts`. This works because Next.js runs as a single long-lived
+  Node process under Electron. Not persisted across restarts.
+- Both tools share the SnapForge surface tokens. Each tool has its own accent
+  for visual identification (screenshot = emerald, image processor = cyan).
 
 ## API
 
 ### `POST /api/screenshot`
+Unchanged from prior versions — see inline source for schema.
 
-```json
-{
-  "url": "https://stripe.com",
-  "width": 1440,
-  "height": 900,
-  "deviceScaleFactor": 1,
-  "isMobile": false,
-  "fullPage": true,
-  "waitTime": 3000
-}
-```
+### `POST /api/image/upload`
+`multipart/form-data` with `images` field (max 50 files, 50 MB each). Returns
+`{ sessionId, images }`.
 
-**Response:**
+### `POST /api/image/convert`
+Body `{ sessionId, imageIds, format: 'avif' | 'webp' }`.
 
-```json
-{
-  "image": "<base64 PNG>",
-  "url": "https://stripe.com",
-  "width": 1440,
-  "height": 900,
-  "timestamp": "2026-03-12T..."
-}
-```
+### `POST /api/image/resize`
+Body `{ sessionId, imageIds, preset: '1k' | '1.5k' | '2k' | '3k' }`.
 
-### `GET /api/screenshot`
+### `POST /api/image/compress`
+Header `X-TinyPNG-Key: <key>`. Body `{ sessionId, imageIds }`. Returns the
+updated images and the monthly compression count.
 
-Health check → `{ "status": "ok" }`
+### `GET /api/image/download/:sessionId/:imageId`
+Stream a single processed image with a sensible filename.
 
-## Extending
+### `GET /api/image/zip/:sessionId`
+Stream a zip of every image in the session.
 
-Some ideas for Claude Code to build on:
-
-- **Batch zip download** — server-side zip generation with `archiver` (already in dependencies)
-- **Scheduled captures** — cron job to re-capture URLs on a schedule
-- **Diff mode** — compare screenshots over time to catch visual regressions
-- **PDF export** — combine screenshots into a PDF report for client delivery
-- **Auth support** — login to sites before screenshotting (Playwright has full cookie/session support)
-- **Supabase integration** — store screenshots and metadata for a persistent gallery
-- **Webhook notifications** — ping a Slack/Discord channel when a batch completes
+### `GET /api/image/compression-count`
+Header `X-TinyPNG-Key: <key>`. Proxies the TinyPNG monthly usage counter.
 
 ## License
 

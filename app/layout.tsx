@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import { Header } from '@/components/hub/Header';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SnapForge — Bulk URL Screenshots',
-  description: 'Capture screenshots of multiple URLs with viewport presets',
+  title: 'SnapForge — Toolkit',
+  description: 'Desktop toolkit: bulk URL screenshots + image conversion, resize, and compression.',
 };
 
 export default function RootLayout({
@@ -25,6 +26,7 @@ export default function RootLayout({
         style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
         className="min-h-screen bg-surface-0 text-gray-200 antialiased"
       >
+        <Header />
         {children}
       </body>
     </html>

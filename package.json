@@ -1,7 +1,7 @@
 {
   "name": "snapforge",
-  "version": "1.0.0",
-  "description": "Bulk URL screenshot tool with viewport presets",
+  "version": "2.0.0",
+  "description": "Toolkit of desktop tools: bulk URL screenshots + image processor (convert/resize/compress).",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -15,17 +15,24 @@
     "electron:build:all": "npm run build && electron-builder -mw"
   },
   "dependencies": {
+    "archiver": "^6.0.1",
+    "electron-store": "^8.2.0",
     "electron-updater": "^6.3.9",
     "jszip": "^3.10.1",
+    "lucide-react": "^0.312.0",
     "next": "^14.2.0",
     "playwright": "^1.58.2",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "sharp": "^0.33.5",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.2",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^9.0.8",
     "autoprefixer": "^10.4.19",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.0",
@@ -38,6 +45,8 @@
     "productName": "SnapForge",
     "artifactName": "SnapForge-${version}-${os}-${arch}.${ext}",
     "asar": false,
+    "buildDependenciesFromSource": false,
+    "npmRebuild": true,
     "directories": {
       "output": "release",
       "buildResources": "electron/assets"

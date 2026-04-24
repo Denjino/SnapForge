@@ -2,7 +2,7 @@
 const nextConfig = {
   output: 'standalone',
   experimental: {
-    serverComponentsExternalPackages: ['playwright'],
+    serverComponentsExternalPackages: ['playwright', 'sharp', 'archiver'],
   },
 };
 

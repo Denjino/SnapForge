@@ -1,0 +1,680 @@
+/* Image Processor — cyan-accent chrome on SnapForge surface tokens.
+   Surfaces (bg, borders) use SnapForge's --surface-* scale so panels match
+   the rest of the app. The cyan accent + glow stays as the tool's identity. */
+
+.ip-root {
+  --ip-accent: #22d3ee;
+  --ip-accent-muted: #0891b2;
+  --ip-accent-bright: #67e8f9;
+  --ip-accent-glow: rgba(34, 211, 238, 0.15);
+  --ip-accent-glow-strong: rgba(34, 211, 238, 0.25);
+
+  --ip-success: #4ade80;
+  --ip-success-glow: rgba(74, 222, 128, 0.15);
+  --ip-warning: #fbbf24;
+  --ip-error: #f87171;
+
+  --ip-border-subtle: rgba(148, 163, 184, 0.08);
+  --ip-border-default: rgba(148, 163, 184, 0.14);
+  --ip-border-strong: rgba(148, 163, 184, 0.22);
+
+  --ip-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --ip-shadow-glow: 0 0 20px var(--ip-accent-glow);
+
+  --ip-text-primary: #f1f5f9;
+  --ip-text-secondary: #94a3b8;
+  --ip-text-muted: #6b7280;
+
+  --ip-font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  color: var(--ip-text-primary);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.ip-root *,
+.ip-root *::before,
+.ip-root *::after {
+  box-sizing: border-box;
+}
+
+/* Page header (inside the tool; the app-level header sits above it) */
+.ip-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--ip-border-subtle);
+}
+
+.ip-header-eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ip-accent);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.ip-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem 0;
+  color: var(--ip-text-primary);
+}
+
+.ip-header p {
+  color: var(--ip-text-secondary);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.ip-api-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--ip-border-default);
+  border-radius: 9999px;
+  padding: 0.4rem 0.9rem;
+  margin-top: 1.25rem;
+  font-size: 0.825rem;
+  font-family: var(--ip-font-mono);
+}
+
+.ip-api-counter-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ip-accent);
+  box-shadow: 0 0 8px var(--ip-accent-glow-strong);
+  animation: ip-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.ip-api-counter span { color: var(--ip-text-secondary); }
+.ip-api-counter strong { color: var(--ip-text-primary); font-weight: 500; }
+
+.ip-api-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: var(--ip-warning);
+  border-radius: 9999px;
+  padding: 0.4rem 0.9rem;
+  margin-top: 1.25rem;
+  font-size: 0.825rem;
+  text-decoration: none;
+}
+
+.ip-api-missing:hover {
+  background: rgba(251, 191, 36, 0.14);
+}
+
+/* Upload zone */
+.ip-upload-zone {
+  background: var(--surface-1);
+  border: 2px dashed var(--ip-border-strong);
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.ip-upload-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, var(--ip-accent-glow) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.ip-upload-zone:hover,
+.ip-upload-zone.dragover {
+  border-color: var(--ip-accent-muted);
+  background: var(--surface-2);
+}
+
+.ip-upload-zone:hover::before,
+.ip-upload-zone.dragover::before {
+  opacity: 1;
+}
+
+.ip-upload-zone-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1.25rem;
+  color: var(--ip-text-muted);
+  transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.ip-upload-zone:hover .ip-upload-zone-icon {
+  color: var(--ip-accent);
+  transform: translateY(-3px);
+}
+
+.ip-upload-zone h3 {
+  font-size: 1.15rem;
+  font-weight: 500;
+  margin: 0 0 0.4rem;
+  color: var(--ip-text-primary);
+}
+
+.ip-upload-zone p {
+  color: var(--ip-text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.ip-upload-zone input { display: none; }
+
+/* Pipeline stages */
+.ip-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.75rem;
+}
+
+.ip-stage {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.ip-stage.active {
+  border-color: var(--ip-accent-muted);
+  box-shadow: var(--ip-shadow-glow);
+}
+
+.ip-stage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.25rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--ip-border-subtle);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ip-stage-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-stage-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--ip-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ip-text-muted);
+  font-family: var(--ip-font-mono);
+}
+
+.ip-stage.active .ip-stage-number {
+  background: var(--ip-accent);
+  border-color: var(--ip-accent);
+  color: #062026;
+  box-shadow: 0 0 12px var(--ip-accent-glow-strong);
+}
+
+.ip-stage-title h3 {
+  font-size: 0.98rem;
+  font-weight: 500;
+  margin: 0;
+  color: var(--ip-text-primary);
+}
+
+.ip-stage-title p {
+  font-size: 0.78rem;
+  color: var(--ip-text-muted);
+  margin: 0;
+}
+
+.ip-stage-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.ip-stage-content {
+  padding: 1.4rem;
+}
+
+/* Selection controls */
+.ip-selection-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--surface-2);
+  border: 1px solid var(--ip-border-subtle);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.ip-selection-count {
+  font-size: 0.85rem;
+  color: var(--ip-text-secondary);
+  margin-right: auto;
+}
+
+/* Image grid */
+.ip-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
+
+.ip-image-card {
+  position: relative;
+  background: var(--surface-2);
+  border: 1px solid var(--ip-border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.ip-image-card:hover {
+  border-color: var(--ip-accent-muted);
+  transform: translateY(-2px);
+  box-shadow: var(--ip-shadow-md);
+}
+
+.ip-image-card.selected {
+  border-color: var(--ip-accent);
+  box-shadow: 0 0 0 1px var(--ip-accent-muted), 0 0 18px rgba(34, 211, 238, 0.12);
+}
+
+.ip-image-card-preview {
+  height: 130px;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.ip-image-card.selected .ip-image-card-preview {
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.ip-format-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--surface-0);
+  border: 1px solid var(--ip-border-default);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-family: var(--ip-font-mono);
+  color: var(--ip-accent);
+}
+
+.ip-image-card-checkbox {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-0);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.ip-check-unchecked { color: var(--ip-text-muted); }
+.ip-check-checked { color: var(--ip-accent); }
+
+.ip-image-card-info { padding: 0.9rem; }
+
+.ip-image-card-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ip-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.6rem;
+}
+
+.ip-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 0.1rem 0;
+}
+
+.ip-stat-label { color: var(--ip-text-muted); }
+.ip-stat-value {
+  font-family: var(--ip-font-mono);
+  color: var(--ip-text-secondary);
+}
+.ip-stat-value.highlight {
+  color: var(--ip-accent);
+  font-weight: 500;
+}
+
+.ip-image-card-download {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ip-border-subtle);
+}
+
+/* Preset buttons (resize + convert format) */
+.ip-preset-grid {
+  display: flex;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.ip-preset-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--ip-border-default);
+  border-radius: 10px;
+  padding: 0.65rem 1.25rem;
+  color: var(--ip-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  min-width: 92px;
+  text-align: center;
+}
+
+.ip-preset-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--ip-border-strong);
+  color: var(--ip-text-primary);
+}
+
+.ip-preset-btn.active {
+  background: var(--ip-accent);
+  border-color: var(--ip-accent);
+  color: #062026;
+  box-shadow: 0 0 16px var(--ip-accent-glow-strong);
+}
+
+.ip-preset-btn span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ip-text-muted);
+  margin-top: 0.2rem;
+  font-weight: 400;
+}
+
+.ip-preset-btn.active span {
+  color: rgba(6, 32, 38, 0.7);
+}
+
+/* Action section */
+.ip-action-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ip-border-subtle);
+}
+
+.ip-action-section h4 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ip-text-secondary);
+  margin: 0 0 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Buttons */
+.ip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.15rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.ip-btn-primary {
+  background: var(--ip-accent);
+  color: #062026;
+  box-shadow: 0 0 16px var(--ip-accent-glow);
+}
+
+.ip-btn-primary:hover:not(:disabled) {
+  background: var(--ip-accent-bright);
+  box-shadow: 0 0 24px var(--ip-accent-glow-strong);
+  transform: translateY(-1px);
+}
+
+.ip-btn-primary:disabled {
+  background: var(--surface-3);
+  color: var(--ip-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.ip-btn-secondary {
+  background: var(--surface-2);
+  border-color: var(--ip-border-default);
+  color: var(--ip-text-secondary);
+}
+
+.ip-btn-secondary:hover {
+  background: var(--surface-3);
+  border-color: var(--ip-border-strong);
+  color: var(--ip-text-primary);
+}
+
+.ip-btn-ghost {
+  background: transparent;
+  color: var(--ip-text-secondary);
+  padding: 0.45rem 0.7rem;
+}
+
+.ip-btn-ghost:hover {
+  background: var(--surface-2);
+  color: var(--ip-text-primary);
+}
+
+.ip-btn-sm {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.ip-btn-hint {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ip-text-muted);
+  margin-top: 0.45rem;
+}
+
+/* Loading overlay */
+.ip-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-loading-content {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.ip-loading-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--ip-text-primary);
+}
+
+.ip-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--ip-border-default);
+  border-top-color: var(--ip-accent);
+  border-radius: 50%;
+  animation: ip-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ip-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ip-loading-progress { margin-top: 0.9rem; }
+
+.ip-progress-bar {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ip-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ip-accent-muted), var(--ip-accent));
+  border-radius: 3px;
+  transition: width 0.2s ease;
+  box-shadow: 0 0 8px var(--ip-accent-glow);
+}
+
+.ip-progress-text {
+  font-size: 0.72rem;
+  color: var(--ip-text-secondary);
+  margin-top: 0.4rem;
+  text-align: center;
+  font-family: var(--ip-font-mono);
+}
+
+/* Summary / download bar */
+.ip-download-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.95rem 1.25rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ip-download-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.ip-download-bar-info span { color: var(--ip-text-secondary); }
+.ip-download-bar-info strong {
+  color: var(--ip-text-primary);
+  font-weight: 500;
+  font-family: var(--ip-font-mono);
+}
+
+.ip-savings {
+  color: var(--ip-success);
+  font-family: var(--ip-font-mono);
+}
+
+/* Modal (TinyPNG key missing) */
+.ip-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  padding: 1rem;
+}
+
+.ip-modal {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.ip-modal h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ip-text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.ip-modal p {
+  font-size: 0.875rem;
+  color: var(--ip-text-secondary);
+  margin: 0 0 1.15rem;
+  line-height: 1.5;
+}
+
+.ip-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+@media (max-width: 720px) {
+  .ip-root { padding: 1rem; }
+  .ip-header h1 { font-size: 1.5rem; }
+  .ip-image-grid { grid-template-columns: 1fr; }
+  .ip-upload-zone { padding: 2rem 1rem; }
+}

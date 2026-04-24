@@ -1,7 +1,9 @@
 // SnapForge — Electron main process
-// Wraps the Next.js app in a desktop window so it runs locally, for free.
+// Wraps the Next.js app in a desktop window. Hosts two tools (screenshot + image
+// processor) from the same Next.js server and persists user settings (e.g. the
+// TinyPNG API key) via electron-store.
 
-const { app, BrowserWindow, shell, dialog } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { spawn, execFileSync } = require('child_process');
 const http = require('http');
@@ -17,11 +19,24 @@ try {
   // dev environment — ignore
 }
 
+// electron-store holds the TinyPNG API key and any future user-supplied config.
+// Stored in userData (encrypted only by OS file permissions — good enough for a
+// desktop tool where the user owns the machine).
+let Store = null;
+try {
+  // electron-store v8 ships as CJS; guard for environments where it isn't installed.
+  // eslint-disable-next-line global-require
+  Store = require('electron-store');
+} catch {
+  // will be reported if the user ever tries to open settings
+}
+
 const isDev = !app.isPackaged;
 
 let mainWindow = null;
 let nextServerProcess = null;
 let serverPort = 0;
+let store = null;
 
 // Resolve the root dir of the Next.js build at runtime.
 // In dev: the project root. Packaged: resources/app (asar disabled for Next.js).
@@ -53,8 +68,6 @@ function getFreePort() {
 
 // --- Ensure Playwright's Chromium is available.
 // Installs Chromium into userData on first launch (~150 MB, one-time).
-// NOTE: We don't pre-bundle Chromium because macOS framework symlinks
-// inside the .app cannot be copied correctly by electron-builder.
 function ensurePlaywrightChromium() {
   const markerFile = path.join(app.getPath('userData'), '.chromium-installed');
   if (fs.existsSync(markerFile)) return true;
@@ -68,7 +81,6 @@ function ensurePlaywrightChromium() {
     return false;
   }
 
-  // Show a non-blocking notice so the user knows why first launch is slow
   const progressWin = new BrowserWindow({
     width: 420,
     height: 160,
@@ -110,8 +122,6 @@ function ensurePlaywrightChromium() {
 }
 
 // --- Auto-update via GitHub Releases (electron-updater)
-// Checks on startup and every hour thereafter. When an update is downloaded,
-// shows an unobtrusive dialog inviting the user to restart.
 function setupAutoUpdater() {
   if (!autoUpdater || isDev) return;
 
@@ -119,7 +129,6 @@ function setupAutoUpdater() {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('error', (err) => {
-    // Log but don't interrupt the user — update failures shouldn't block usage
     console.error('[updater]', err);
   });
 
@@ -136,14 +145,43 @@ function setupAutoUpdater() {
     if (res === 0) autoUpdater.quitAndInstall();
   });
 
-  // Initial check + hourly thereafter
   autoUpdater.checkForUpdates().catch(() => {});
   setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
 }
 
+// --- Settings store + IPC
+function setupSettings() {
+  if (!Store) {
+    console.warn('[settings] electron-store is not installed; settings will not persist.');
+    return;
+  }
+
+  store = new Store({
+    name: 'snapforge-settings',
+    schema: {
+      tinypngApiKey: { type: 'string', default: '' },
+    },
+  });
+
+  ipcMain.handle('settings:get', (_evt, key) => {
+    if (!store) return null;
+    return store.get(key);
+  });
+
+  ipcMain.handle('settings:set', (_evt, key, value) => {
+    if (!store) return false;
+    store.set(key, value);
+    return true;
+  });
+
+  ipcMain.handle('settings:has', (_evt, key) => {
+    if (!store) return false;
+    const v = store.get(key);
+    return v !== undefined && v !== null && v !== '';
+  });
+}
+
 // --- Start the Next.js server as a child process.
-// Packaged: runs the standalone server (static/public live next to server.js).
-// Dev: runs `next start` from the project root so asset paths just work.
 async function startNextServer() {
   serverPort = await getFreePort();
 
@@ -172,6 +210,10 @@ async function startNextServer() {
       PORT: String(serverPort),
       HOSTNAME: '127.0.0.1',
       NODE_ENV: isDev ? 'development' : 'production',
+      // Used by image-processor API routes for temp file storage — packaged
+      // apps can't write next to the bundle, so we route everything through
+      // Electron's userData directory.
+      USER_DATA_DIR: app.getPath('userData'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -208,18 +250,31 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
-    minWidth: 900,
-    minHeight: 600,
-    backgroundColor: '#0b0b0f',
+    minWidth: 1100,
+    minHeight: 720,
+    backgroundColor: '#0a0a0c',
     title: 'SnapForge',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      // Preload only uses electron.ipcRenderer, which is available under sandbox.
       sandbox: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 
-  // Open external links in the system browser instead of inside the app window
+  // Let page <title> drive the window title so the hub / tool names appear.
+  mainWindow.webContents.on('page-title-updated', (evt, title) => {
+    if (!title) return;
+    // Prefix with SnapForge unless the page already did.
+    if (title.toLowerCase().startsWith('snapforge')) {
+      mainWindow.setTitle(title);
+    } else {
+      mainWindow.setTitle(`SnapForge — ${title}`);
+    }
+    evt.preventDefault();
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -234,6 +289,7 @@ function createWindow() {
 // --- App lifecycle
 app.whenReady().then(async () => {
   try {
+    setupSettings();
     if (!ensurePlaywrightChromium()) {
       app.quit();
       return;
