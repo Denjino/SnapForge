@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Processor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0b;
+      --bg-secondary: #111113;
+      --bg-tertiary: #18181b;
+      --bg-elevated: #1f1f23;
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #22c55e;
+      --accent-dim: #16a34a;
+      --accent-glow: rgba(34, 197, 94, 0.15);
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --gradient-1: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 48px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--gradient-1);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: white;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .api-counter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+    }
+
+    .counter-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .counter-label {
+      color: var(--text-muted);
+    }
+
+    .counter-value {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 60px 40px;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      background: var(--bg-secondary);
+      margin-bottom: 32px;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .upload-zone svg {
+      width: 48px;
+      height: 48px;
+      stroke: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .upload-zone:hover svg {
+      stroke: var(--accent);
+    }
+
+    .upload-zone h2 {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .upload-zone p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    /* Pipeline Section */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .stage {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .stage-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stage-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stage-number {
+      width: 28px;
+      height: 28px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .stage.completed .stage-number {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .stage h3 {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .stage-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stage-content {
+      padding: 24px;
+    }
+
+    /* Image Grid */
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .image-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .image-card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .image-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .image-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .stat-value.highlight {
+      color: var(--accent);
+    }
+
+    .stat-value.reduction {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .image-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .btn-primary {
+      background: var(--gradient-1);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-hover);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+
+    .btn-sm svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Resize Options */
+    .resize-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .resize-btn {
+      padding: 12px 24px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .resize-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .resize-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    .resize-btn span {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Action Bar */
+    .action-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Loading States */
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Progress indicator */
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--gradient-1);
+      transition: width 0.3s ease;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    /* Hidden */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .container {
+        padding: 24px 16px;
+      }
+
+      header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+      }
+
+      .resize-options {
+        justify-content: center;
+      }
+
+      .action-bar {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success {
+      border-color: var(--accent);
+    }
+
+    .toast.error {
+      border-color: var(--error);
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Summary Stats */
+    .summary-stats {
+      display: flex;
+      gap: 24px;
+      padding: 20px 24px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      margin-bottom: 24px;
+    }
+
+    .summary-stat {
+      flex: 1;
+    }
+
+    .summary-stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+        </div>
+        <h1>Image Processor</h1>
+      </div>
+      <div class="api-counter">
+        <div class="counter-dot"></div>
+        <span class="counter-label">TinyPNG</span>
+        <span class="counter-value" id="compressionCount">—</span>
+        <span class="counter-label">compressions</span>
+      </div>
+    </header>
+
+    <div class="upload-zone" id="uploadZone">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+      </svg>
+      <h2>Drop images here</h2>
+      <p>PNG, JPEG, WebP — automatically converted to AVIF</p>
+      <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/jpg,image/webp,image/avif">
+    </div>
+
+    <div class="pipeline" id="pipeline">
+      <!-- Stage 1: Convert -->
+      <div class="stage hidden" id="convertStage">
+        <div class="stage-header">
+          <div class="stage-title">
+            <div class="stage-number">1</div>
+            <h3>Convert to AVIF</h3>
+          </div>
+          <div class="stage-status" id="convertStatus">Processing...</div>
+        </div>
+        <div class="stage-content">
+          <div class="progress-bar hidden" id="convertProgress">
+            <div class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="summary-stats hidden" id="convertSummary">
+            <div class="summary-stat">
+              <div class="summary-stat-label">Images</div>
+              <div class="summary-stat-value" id="convertCount">0</div>
+            </div>
+            <div class="summary-stat">
+              <div class="summary-stat-label">Original Size</div>
+              <div class="summary-stat-value" id="originalTotalSize">0 KB</div>
+            </div>
+            <div class="summary-stat">
+              <div class="summary-stat-label">Converted Size</div>
+              <div class="summary-stat-value" id="convertedTotalSize">0 KB</div>
+            </div>
+            <div class="summary-stat">
+              <div class="summary-stat-label">Saved</div>
+              <div class="summary-stat-value" style="color: var(--accent)" id="convertSavings">0%</div>
+            </div>
+          </div>
+          <div class="image-grid" id="convertedImages"></div>
+          <div class="action-bar" id="convertActions">
+            <button class="btn btn-secondary" onclick="downloadAll()">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download All (ZIP)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 2: Resize -->
+      <div class="stage hidden" id="resizeStage">
+        <div class="stage-header">
+          <div class="stage-title">
+            <div class="stage-number">2</div>
+            <h3>Resize</h3>
+          </div>
+          <div class="stage-status" id="resizeStatus">Select a preset</div>
+        </div>
+        <div class="stage-content">
+          <div class="resize-options">
+            <button class="resize-btn" data-size="1000" onclick="selectResize(1000, this)">
+              1K
+              <span>1000px longest side</span>
+            </button>
+            <button class="resize-btn" data-size="1500" onclick="selectResize(1500, this)">
+              1.5K
+              <span>1500px longest side</span>
+            </button>
+            <button class="resize-btn" data-size="2000" onclick="selectResize(2000, this)">
+              2K
+              <span>2000px longest side</span>
+            </button>
+            <button class="resize-btn" data-size="3000" onclick="selectResize(3000, this)">
+              3K
+              <span>3000px longest side</span>
+            </button>
+          </div>
+          <div class="progress-bar hidden" id="resizeProgress">
+            <div class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="image-grid" id="resizedImages"></div>
+          <div class="action-bar">
+            <button class="btn btn-primary" id="resizeBtn" disabled onclick="resizeAll()">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+              </svg>
+              Resize All
+            </button>
+            <button class="btn btn-secondary" onclick="downloadAll()">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download All (ZIP)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 3: Compress -->
+      <div class="stage hidden" id="compressStage">
+        <div class="stage-header">
+          <div class="stage-title">
+            <div class="stage-number">3</div>
+            <h3>Compress</h3>
+          </div>
+          <div class="stage-status" id="compressStatus">Ready to compress</div>
+        </div>
+        <div class="stage-content">
+          <div class="progress-bar hidden" id="compressProgress">
+            <div class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="image-grid" id="compressedImages"></div>
+          <div class="action-bar">
+            <button class="btn btn-primary" id="compressBtn" onclick="compressAll()">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Compress All
+            </button>
+            <button class="btn btn-secondary" onclick="downloadAll()">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download All (ZIP)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // State
+    let images = [];
+    let selectedResizeSize = null;
+
+    // DOM Elements
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const convertStage = document.getElementById('convertStage');
+    const resizeStage = document.getElementById('resizeStage');
+    const compressStage = document.getElementById('compressStage');
+    const compressionCount = document.getElementById('compressionCount');
+
+    // Utility functions
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.getElementById('toastContainer').appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Upload handling
+    uploadZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFiles);
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      handleFiles({ target: { files: e.dataTransfer.files } });
+    });
+
+    async function handleFiles(e) {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      // Reset state
+      images = [];
+      selectedResizeSize = null;
+      document.querySelectorAll('.resize-btn').forEach(btn => btn.classList.remove('selected'));
+      document.getElementById('resizeBtn').disabled = true;
+
+      // Show convert stage
+      convertStage.classList.remove('hidden');
+      resizeStage.classList.add('hidden');
+      compressStage.classList.add('hidden');
+      document.getElementById('convertStatus').innerHTML = '<span class="loading"><span class="spinner"></span>Converting...</span>';
+      document.getElementById('convertedImages').innerHTML = '';
+      document.getElementById('convertSummary').classList.add('hidden');
+      document.getElementById('convertProgress').classList.remove('hidden');
+      document.getElementById('convertActions').classList.add('hidden');
+
+      // Upload and convert
+      const formData = new FormData();
+      files.forEach(file => formData.append('images', file));
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        images = data.images;
+        updateCompressionCount(data.compressionCount);
+        
+        // Update UI
+        document.getElementById('convertProgress').classList.add('hidden');
+        document.getElementById('convertStatus').textContent = `${images.length} image${images.length > 1 ? 's' : ''} converted`;
+        convertStage.classList.add('completed');
+
+        // Show summary
+        const originalTotal = images.reduce((sum, img) => sum + img.originalSize, 0);
+        const convertedTotal = images.reduce((sum, img) => sum + img.convertedSize, 0);
+        const savings = ((1 - convertedTotal / originalTotal) * 100).toFixed(1);
+
+        document.getElementById('convertCount').textContent = images.length;
+        document.getElementById('originalTotalSize').textContent = formatBytes(originalTotal);
+        document.getElementById('convertedTotalSize').textContent = formatBytes(convertedTotal);
+        document.getElementById('convertSavings').textContent = savings + '%';
+        document.getElementById('convertSummary').classList.remove('hidden');
+        document.getElementById('convertActions').classList.remove('hidden');
+
+        // Render cards
+        renderConvertedImages();
+
+        // Show next stages
+        resizeStage.classList.remove('hidden');
+        compressStage.classList.remove('hidden');
+        renderResizeImages();
+        renderCompressImages();
+
+      } catch (error) {
+        showToast(error.message, 'error');
+        document.getElementById('convertStatus').textContent = 'Error converting';
+        document.getElementById('convertProgress').classList.add('hidden');
+      }
+    }
+
+    function renderConvertedImages() {
+      const container = document.getElementById('convertedImages');
+      container.innerHTML = images.map(img => `
+        <div class="image-card">
+          <div class="image-name">${img.name}</div>
+          <div class="image-stats">
+            <div class="stat-row">
+              <span class="stat-label">Original</span>
+              <span class="stat-value">${formatBytes(img.originalSize)}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Converted</span>
+              <span class="stat-value highlight">${formatBytes(img.convertedSize)}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Resolution</span>
+              <span class="stat-value">${img.width} × ${img.height}</span>
+            </div>
+          </div>
+          <div class="image-actions">
+            <button class="btn btn-sm btn-secondary" onclick="downloadSingle('${img.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderResizeImages() {
+      const container = document.getElementById('resizedImages');
+      container.innerHTML = images.map(img => `
+        <div class="image-card" id="resize-card-${img.id}">
+          <div class="image-name">${img.name}</div>
+          <div class="image-stats">
+            <div class="stat-row">
+              <span class="stat-label">Current Size</span>
+              <span class="stat-value">${formatBytes(img.convertedSize)}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Resolution</span>
+              <span class="stat-value">${img.width} × ${img.height}</span>
+            </div>
+          </div>
+          <div class="image-actions">
+            <button class="btn btn-sm btn-secondary" onclick="downloadSingle('${img.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderCompressImages() {
+      const container = document.getElementById('compressedImages');
+      container.innerHTML = images.map(img => `
+        <div class="image-card" id="compress-card-${img.id}">
+          <div class="image-name">${img.name}</div>
+          <div class="image-stats">
+            <div class="stat-row">
+              <span class="stat-label">Current Size</span>
+              <span class="stat-value" id="compress-size-${img.id}">${formatBytes(img.convertedSize)}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Resolution</span>
+              <span class="stat-value" id="compress-res-${img.id}">${img.width} × ${img.height}</span>
+            </div>
+          </div>
+          <div class="image-actions">
+            <button class="btn btn-sm btn-secondary" onclick="downloadSingle('${img.id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function selectResize(size, btn) {
+      selectedResizeSize = size;
+      document.querySelectorAll('.resize-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      document.getElementById('resizeBtn').disabled = false;
+      document.getElementById('resizeStatus').textContent = `Resize to ${size}px max`;
+    }
+
+    async function resizeAll() {
+      if (!selectedResizeSize || images.length === 0) return;
+
+      const resizeBtn = document.getElementById('resizeBtn');
+      resizeBtn.disabled = true;
+      resizeBtn.innerHTML = '<span class="spinner"></span> Resizing...';
+      document.getElementById('resizeProgress').classList.remove('hidden');
+      document.getElementById('resizeStatus').innerHTML = '<span class="loading"><span class="spinner"></span>Resizing...</span>';
+
+      try {
+        const response = await fetch('/api/resize-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ids: images.map(img => img.id),
+            maxDimension: selectedResizeSize
+          })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        updateCompressionCount(data.compressionCount);
+
+        // Update images state
+        data.results.forEach(result => {
+          const img = images.find(i => i.id === result.id);
+          if (img) {
+            img.width = result.width;
+            img.height = result.height;
+            img.convertedSize = result.size;
+          }
+        });
+
+        // Update UI
+        const skipped = data.results.filter(r => r.skipped).length;
+        const resized = data.results.length - skipped;
+        document.getElementById('resizeStatus').textContent = `${resized} resized, ${skipped} already smaller`;
+        resizeStage.classList.add('completed');
+
+        renderResizeImages();
+        renderCompressImages();
+
+        showToast(`Resized ${resized} images`);
+
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
+        document.getElementById('resizeProgress').classList.add('hidden');
+        resizeBtn.disabled = false;
+        resizeBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+          </svg>
+          Resize All
+        `;
+      }
+    }
+
+    async function compressAll() {
+      if (images.length === 0) return;
+
+      const compressBtn = document.getElementById('compressBtn');
+      compressBtn.disabled = true;
+      compressBtn.innerHTML = '<span class="spinner"></span> Compressing...';
+      document.getElementById('compressProgress').classList.remove('hidden');
+      document.getElementById('compressStatus').innerHTML = '<span class="loading"><span class="spinner"></span>Compressing...</span>';
+
+      try {
+        const response = await fetch('/api/compress-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ids: images.map(img => img.id)
+          })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        updateCompressionCount(data.compressionCount);
+
+        // Update images state and calculate savings
+        let totalBefore = 0;
+        let totalAfter = 0;
+
+        data.results.forEach(result => {
+          const img = images.find(i => i.id === result.id);
+          if (img) {
+            totalBefore += result.previousSize;
+            totalAfter += result.size;
+            img.convertedSize = result.size;
+            img.width = result.width;
+            img.height = result.height;
+          }
+        });
+
+        const savings = ((1 - totalAfter / totalBefore) * 100).toFixed(1);
+        document.getElementById('compressStatus').textContent = `Compressed — saved ${savings}% additional`;
+        compressStage.classList.add('completed');
+
+        renderCompressImages();
+
+        showToast(`Compressed ${data.results.length} images — saved ${savings}%`);
+
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
+        document.getElementById('compressProgress').classList.add('hidden');
+        compressBtn.disabled = false;
+        compressBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Compress All
+        `;
+      }
+    }
+
+    function downloadSingle(id) {
+      window.location.href = `/api/download/${id}`;
+    }
+
+    async function downloadAll() {
+      if (images.length === 0) return;
+
+      try {
+        const response = await fetch('/api/download-zip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ids: images.map(img => img.id)
+          })
+        });
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'processed-images.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showToast('Downloaded ZIP file');
+      } catch (error) {
+        showToast('Failed to download ZIP', 'error');
+      }
+    }
+
+    function updateCompressionCount(count) {
+      if (count) {
+        compressionCount.textContent = count;
+      }
+    }
+  </script>
+</body>
+</html>
