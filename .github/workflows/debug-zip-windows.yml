@@ -1,8 +1,10 @@
 name: Debug Zip Windows
 
 # Temporary diagnostic: reproduce the 500 on /api/image/zip in the packaged
-# Windows app by running the standalone server on windows-latest and replaying
-# upload -> convert -> zip -> single download. Delete after the bug is fixed.
+# Windows app. Builds the real electron-builder win-unpacked package, checks
+# whether the bracketed dynamic-route files survived packaging, then runs the
+# standalone server from inside the package (via Electron's run-as-node, same
+# as production) and replays upload -> convert -> zip. Delete after fixing.
 
 on:
   push:
@@ -28,23 +30,62 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
-      - name: Run server and replay flow
+      - name: Sanity check source build has bracketed routes
+        shell: pwsh
+        run: |
+          Write-Host '=== .next/standalone route files (source build) ==='
+          Get-ChildItem -Recurse '.next\standalone\.next\server\app\api' -Filter 'route.js' | ForEach-Object { $_.FullName }
+
+      - name: Package win-unpacked (electron-builder)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --dir
+
+      - name: Inspect packaged app contents
+        shell: pwsh
+        run: |
+          $app = 'release\win-unpacked\resources\app'
+          Write-Host "=== packaged route files under $app ==="
+          if (Test-Path "$app\.next\standalone\.next\server\app\api") {
+            Get-ChildItem -Recurse "$app\.next\standalone\.next\server\app\api" -Filter 'route.js' | ForEach-Object { $_.FullName }
+          } else {
+            Write-Host 'MISSING: server/app/api directory entirely'
+          }
+          Write-Host '=== bracketed dirs present? ==='
+          foreach ($p in @(
+            "$app\.next\standalone\.next\server\app\api\image\zip\[sessionId]",
+            "$app\.next\standalone\.next\server\app\api\image\download\[sessionId]\[imageId]"
+          )) {
+            $exists = Test-Path -LiteralPath $p
+            Write-Host "$p -> $exists"
+          }
+          Write-Host '=== archiver present? ==='
+          foreach ($p in @(
+            "$app\.next\standalone\node_modules\archiver",
+            "$app\node_modules\archiver"
+          )) {
+            $exists = Test-Path -LiteralPath $p
+            Write-Host "$p -> $exists"
+          }
+
+      - name: Run packaged server via Electron run-as-node and replay flow
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
 
-          # Test image
           node -e "require('sharp')({create:{width:1308,height:695,channels:3,background:{r:120,g:40,b:200}}}).jpeg({quality:90}).toFile('home-hero.jpg').then(()=>console.log('test jpg created'))"
 
-          # Start standalone server like the packaged app does
+          $exe = (Resolve-Path 'release\win-unpacked\SnapForge.exe').Path
+          $standalone = (Resolve-Path 'release\win-unpacked\resources\app\.next\standalone').Path
+
+          $env:ELECTRON_RUN_AS_NODE = '1'
           $env:USER_DATA_DIR = "$env:RUNNER_TEMP\snapforge-userdata"
           $env:PORT = '4001'
           $env:HOSTNAME = '127.0.0.1'
           $env:NODE_ENV = 'production'
-          $server = Start-Process node -ArgumentList 'server.js' -WorkingDirectory '.next\standalone' `
+          $server = Start-Process $exe -ArgumentList "$standalone\server.js" -WorkingDirectory $standalone `
             -RedirectStandardOutput server.out.log -RedirectStandardError server.err.log -PassThru -NoNewWindow
 
-          # Wait for readiness
           $ready = $false
           foreach ($i in 1..60) {
             try {
@@ -58,29 +99,21 @@ jobs:
             Get-Content server.err.log -ErrorAction SilentlyContinue
             exit 1
           }
-          Write-Host '=== server ready ==='
+          Write-Host '=== packaged server ready (running under SnapForge.exe as node) ==='
 
-          # 1. upload
           $up = curl.exe -s -F 'images=@home-hero.jpg;type=image/jpeg' http://127.0.0.1:4001/api/image/upload
           Write-Host "UPLOAD: $up"
           $upJson = $up | ConvertFrom-Json
           $session = $upJson.sessionId
           $img = $upJson.images[0].id
 
-          # 2. convert to avif
           $body = @{ sessionId = $session; imageIds = @($img); format = 'avif' } | ConvertTo-Json
           $conv = curl.exe -s -X POST -H 'Content-Type: application/json' -d $body http://127.0.0.1:4001/api/image/convert
           Write-Host "CONVERT: $conv"
 
-          # 3. zip download (the failing call)
           $zipStatus = curl.exe -s -o out.zip -w '%{http_code} %{size_download}' "http://127.0.0.1:4001/api/image/zip/$session"
           Write-Host "ZIP RESULT: HTTP $zipStatus"
-          if (Test-Path out.zip) {
-            Write-Host '--- first bytes of zip response ---'
-            Get-Content out.zip -TotalCount 5 -ErrorAction SilentlyContinue
-          }
 
-          # 4. single download
           $dlStatus = curl.exe -s -o single.avif -w '%{http_code} %{size_download}' "http://127.0.0.1:4001/api/image/download/$session/$img"
           Write-Host "SINGLE RESULT: HTTP $dlStatus"
 
