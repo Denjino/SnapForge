@@ -1,0 +1,92 @@
+name: Debug Zip Windows
+
+# Temporary diagnostic: reproduce the 500 on /api/image/zip in the packaged
+# Windows app by running the standalone server on windows-latest and replaying
+# upload -> convert -> zip -> single download. Delete after the bug is fixed.
+
+on:
+  push:
+    branches:
+      - claude/debug-zip-windows
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Run server and replay flow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          # Test image
+          node -e "require('sharp')({create:{width:1308,height:695,channels:3,background:{r:120,g:40,b:200}}}).jpeg({quality:90}).toFile('home-hero.jpg').then(()=>console.log('test jpg created'))"
+
+          # Start standalone server like the packaged app does
+          $env:USER_DATA_DIR = "$env:RUNNER_TEMP\snapforge-userdata"
+          $env:PORT = '4001'
+          $env:HOSTNAME = '127.0.0.1'
+          $env:NODE_ENV = 'production'
+          $server = Start-Process node -ArgumentList 'server.js' -WorkingDirectory '.next\standalone' `
+            -RedirectStandardOutput server.out.log -RedirectStandardError server.err.log -PassThru -NoNewWindow
+
+          # Wait for readiness
+          $ready = $false
+          foreach ($i in 1..60) {
+            try {
+              $r = Invoke-WebRequest -Uri 'http://127.0.0.1:4001/api/screenshot' -UseBasicParsing -TimeoutSec 2
+              if ($r.StatusCode -eq 200) { $ready = $true; break }
+            } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ready) {
+            Write-Host '=== SERVER NEVER BECAME READY ==='
+            Get-Content server.out.log -ErrorAction SilentlyContinue
+            Get-Content server.err.log -ErrorAction SilentlyContinue
+            exit 1
+          }
+          Write-Host '=== server ready ==='
+
+          # 1. upload
+          $up = curl.exe -s -F 'images=@home-hero.jpg;type=image/jpeg' http://127.0.0.1:4001/api/image/upload
+          Write-Host "UPLOAD: $up"
+          $upJson = $up | ConvertFrom-Json
+          $session = $upJson.sessionId
+          $img = $upJson.images[0].id
+
+          # 2. convert to avif
+          $body = @{ sessionId = $session; imageIds = @($img); format = 'avif' } | ConvertTo-Json
+          $conv = curl.exe -s -X POST -H 'Content-Type: application/json' -d $body http://127.0.0.1:4001/api/image/convert
+          Write-Host "CONVERT: $conv"
+
+          # 3. zip download (the failing call)
+          $zipStatus = curl.exe -s -o out.zip -w '%{http_code} %{size_download}' "http://127.0.0.1:4001/api/image/zip/$session"
+          Write-Host "ZIP RESULT: HTTP $zipStatus"
+          if (Test-Path out.zip) {
+            Write-Host '--- first bytes of zip response ---'
+            Get-Content out.zip -TotalCount 5 -ErrorAction SilentlyContinue
+          }
+
+          # 4. single download
+          $dlStatus = curl.exe -s -o single.avif -w '%{http_code} %{size_download}' "http://127.0.0.1:4001/api/image/download/$session/$img"
+          Write-Host "SINGLE RESULT: HTTP $dlStatus"
+
+          Write-Host '=== SERVER STDOUT ==='
+          Get-Content server.out.log -ErrorAction SilentlyContinue
+          Write-Host '=== SERVER STDERR ==='
+          Get-Content server.err.log -ErrorAction SilentlyContinue
+
+          Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
