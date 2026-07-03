@@ -1,0 +1,102 @@
+name: Package Smoke Test
+
+# Packages the app with electron-builder (win-unpacked) and runs the image
+# pipeline end-to-end against the PACKAGED server, under Electron's
+# run-as-node — the same runtime the installed app uses. Catches bugs that
+# only exist in the packaged app, e.g. electron-builder's dependency
+# collector dropping transitive node_modules (the v2.0.0 zip-download 500).
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Package win-unpacked (electron-builder)
+        run: npx electron-builder --win --dir
+
+      - name: Run packaged server via Electron run-as-node and replay flow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          node -e "require('sharp')({create:{width:1308,height:695,channels:3,background:{r:120,g:40,b:200}}}).jpeg({quality:90}).toFile('home-hero.jpg').then(()=>console.log('test jpg created'))"
+
+          $exe = (Resolve-Path 'release\win-unpacked\SnapForge.exe').Path
+          $standalone = (Resolve-Path 'release\win-unpacked\resources\app\.next\standalone').Path
+
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $env:USER_DATA_DIR = "$env:RUNNER_TEMP\snapforge-userdata"
+          $env:PORT = '4001'
+          $env:HOSTNAME = '127.0.0.1'
+          $env:NODE_ENV = 'production'
+          $server = Start-Process $exe -ArgumentList "$standalone\server.js" -WorkingDirectory $standalone `
+            -RedirectStandardOutput server.out.log -RedirectStandardError server.err.log -PassThru -NoNewWindow
+
+          $ready = $false
+          foreach ($i in 1..60) {
+            try {
+              $r = Invoke-WebRequest -Uri 'http://127.0.0.1:4001/api/screenshot' -UseBasicParsing -TimeoutSec 2
+              if ($r.StatusCode -eq 200) { $ready = $true; break }
+            } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ready) {
+            Write-Host '=== SERVER NEVER BECAME READY ==='
+            Get-Content server.out.log -ErrorAction SilentlyContinue
+            Get-Content server.err.log -ErrorAction SilentlyContinue
+            exit 1
+          }
+          Write-Host '=== packaged server ready ==='
+
+          $failed = $false
+
+          $up = curl.exe -s -F 'images=@home-hero.jpg;type=image/jpeg' http://127.0.0.1:4001/api/image/upload
+          Write-Host "UPLOAD: $up"
+          $upJson = $up | ConvertFrom-Json
+          if (-not $upJson.sessionId) { Write-Host 'FAIL: upload'; $failed = $true }
+          $session = $upJson.sessionId
+          $img = $upJson.images[0].id
+
+          $body = @{ sessionId = $session; imageIds = @($img); format = 'avif' } | ConvertTo-Json
+          $convStatus = curl.exe -s -o conv.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d $body http://127.0.0.1:4001/api/image/convert
+          Write-Host "CONVERT: HTTP $convStatus"
+          if ($convStatus -ne '200') { Write-Host 'FAIL: convert'; $failed = $true }
+
+          $resizeBody = @{ sessionId = $session; imageIds = @($img); preset = '1k' } | ConvertTo-Json
+          $resizeStatus = curl.exe -s -o resize.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d $resizeBody http://127.0.0.1:4001/api/image/resize
+          Write-Host "RESIZE: HTTP $resizeStatus"
+          if ($resizeStatus -ne '200') { Write-Host 'FAIL: resize'; $failed = $true }
+
+          $zipStatus = curl.exe -s -o out.zip -w '%{http_code}' "http://127.0.0.1:4001/api/image/zip/$session"
+          Write-Host "ZIP: HTTP $zipStatus"
+          if ($zipStatus -ne '200') { Write-Host 'FAIL: zip download'; $failed = $true }
+
+          $dlStatus = curl.exe -s -o single.avif -w '%{http_code}' "http://127.0.0.1:4001/api/image/download/$session/$img"
+          Write-Host "SINGLE DOWNLOAD: HTTP $dlStatus"
+          if ($dlStatus -ne '200') { Write-Host 'FAIL: single download'; $failed = $true }
+
+          Write-Host '=== SERVER STDERR ==='
+          Get-Content server.err.log -ErrorAction SilentlyContinue
+
+          Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+
+          if ($failed) { exit 1 }
+          Write-Host 'ALL PACKAGED-APP CHECKS PASSED'
