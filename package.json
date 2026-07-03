@@ -1,6 +1,6 @@
 {
   "name": "snapforge",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Toolkit of desktop tools: bulk URL screenshots + image processor (convert/resize/compress).",
   "private": true,
   "main": "electron/main.js",
